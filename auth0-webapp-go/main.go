@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,37 +16,20 @@ import (
 
 var oauth2Config oauth2.Config
 
-var (
-	clientID     string
-	clientSecret string
-	domain       string
-	callbackURL  string
-)
-
 func init() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	clientID = os.Getenv("CLIENT_ID")
-	clientSecret = os.Getenv("CLIENT_SECRET")
-	domain = os.Getenv("DOMAIN")
-	callbackURL = os.Getenv("CALLBACK_URL")
-
-	if clientID == "" || clientSecret == "" || domain == "" || callbackURL == "" {
-		log.Fatal("Missing required environment variables")
-	}
-
-	// Configure OAuth2
 	oauth2Config = oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  callbackURL,
+		ClientID:     os.Getenv("CLIENT_ID"),
+		ClientSecret: os.Getenv("CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("CALLBACK_URL"),
 		Scopes:       []string{"openid", "profile", "email"},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  fmt.Sprintf("https://%s/authorize", domain),
-			TokenURL: fmt.Sprintf("https://%s/oauth/token", domain),
+			AuthURL:  fmt.Sprintf("https://%s/authorize", os.Getenv("DOMAIN")),
+			TokenURL: fmt.Sprintf("https://%s/oauth/token", os.Getenv("DOMAIN")),
 		},
 	}
 }
@@ -55,25 +37,80 @@ func init() {
 var stateStore = make(map[string]bool)
 
 func main() {
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/callback", callbackHandler)
-	http.HandleFunc("/logout", logoutHandler)
-	log.Fatal(http.ListenAndServe(":3000", nil))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", homeHandler)
+	mux.HandleFunc("/login", loginHandler)
+	mux.HandleFunc("/callback", callbackHandler)
+	mux.HandleFunc("/logout", logoutHandler)
+
+	handler := corsMiddleware(mux)
+
+	log.Fatal(http.ListenAndServe(":3000", handler))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+
+		allowedOrigin := "http://localhost:5500"
+
+		if origin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session")
 	if err != nil {
-		fmt.Fprint(w, `<a href="/login">Login with Auth0</a>`)
+
+		fmt.Fprint(w, `
+		<style>
+			body {
+				margin: 0;
+				height: 40vh;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				font-family: Arial, sans-serif;
+				background-color: #f5f5f5;
+			}
+			.login-button {
+				display: inline-block;
+				padding: 12px 24px;
+				background-color: #eb5424;
+				color: white;
+				font-weight: bold;
+				text-decoration: none;
+				border-radius: 6px;
+				box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+				transition: background-color 0.3s ease;
+			}
+			.login-button:hover {
+				background-color: #cf481f;
+			}
+		</style>
+		<a href="/login" class="login-button">Login with Auth0</a>
+	`)
+
 		return
 	}
 
 	auth0Client, err := authentication.New(
 		context.Background(),
-		domain,
-		authentication.WithClientID(clientID),
-		authentication.WithClientSecret(clientSecret),
+		os.Getenv("DOMAIN"),
+		authentication.WithClientID(os.Getenv("CLIENT_ID")),
+		authentication.WithClientSecret(os.Getenv("CLIENT_SECRET")),
 	)
 	if err != nil {
 		http.Error(w, "Auth0 client error", http.StatusInternalServerError)
@@ -86,8 +123,64 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userJSON, _ := json.MarshalIndent(userInfo, "", "  ")
-	fmt.Fprintf(w, `<h1>Welcome</h1><pre>%s</pre><a href="/logout">Logout</a>`, userJSON)
+	fmt.Fprintf(w, `
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8" />
+				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>Welcome</title>
+				<style>
+					body {
+						font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+						background-color: #f7f9fc;
+						color: #333;
+						margin: 0;
+						padding: 0;
+					}
+					.container {
+						max-width: 400px;
+						margin: 80px auto;
+						background-color: white;
+						padding: 30px;
+						border-radius: 10px;
+						box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+						text-align: center;
+					}
+					h1 {
+						margin-bottom: 10px;
+						color: #2c3e50;
+					}
+					p {
+						margin: 10px 0;
+						font-size: 18px;
+					}
+					.logout-button {
+						display: inline-block;
+						margin-top: 25px;
+						padding: 12px 28px;
+						background-color: #e74c3c;
+						color: white;
+						font-weight: bold;
+						text-decoration: none;
+						border-radius: 6px;
+						font-size: 16px;
+						box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+						transition: background-color 0.3s ease;
+					}
+					.logout-button:hover {
+						background-color: #c0392b;
+					}
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<h1>Welcome, %s!</h1>
+					<a class="logout-button" href="/logout">Logout</a>
+				</div>
+			</body>
+			</html>
+			`, userInfo.FamilyName)
 }
 
 func generateState() string {
@@ -105,7 +198,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // change to true when not localhost anymore
+		Secure:   false,
 	})
 
 	url := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOnline)
@@ -148,6 +241,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	})
 	logoutURL := fmt.Sprintf("https://%s/v2/logout?client_id=%s&returnTo=%s",
-		domain, clientID, "http://localhost:3000")
+		os.Getenv("DOMAIN"), os.Getenv("CLIENT_ID"), "http://localhost:3000")
 	http.Redirect(w, r, logoutURL, http.StatusFound)
 }
