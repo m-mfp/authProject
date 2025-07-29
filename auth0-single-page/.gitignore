@@ -24,4 +24,5 @@ yarn-error.log*
 
 # personal
 .env
+src/.env
 .personal.txt
