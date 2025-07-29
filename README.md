@@ -1,15 +1,10 @@
-# Security Policy
+## About Me
 
-## Reporting a Vulnerability
+This repository showcases my skills in implementing various authentication solutions using Auth0 across multiple platforms and tech stacks:
 
-This project is a personal portfolio with minimal security risks. However, if you believe you have found a security vulnerability, please report it responsibly by contacting me directly:
+- **Regular Web Application (Golang):** A full-featured web app demonstrating secure user authentication and session management using Auth0.
+- **Single Page Application (React):** A clean and simple React app implementing user login/logout flows with Auth0, showing my frontend authentication expertise.
+- **Native Application (JavaScript):** An in-progress native app project utilizing JavaScript to integrate Auth0 authentication.
+- **Machine-to-Machine (Python):** An ongoing project focused on secure machine-to-machine authentication using Python and Auth0.
 
-- open a private GitHub issue (please mention it is a security-related concern).
-
-Please do **not** create a public issue for security vulnerabilities to avoid exposing sensitive information.
-
-## Response
-
-I will acknowledge security reports within 48 hours and work to resolve any confirmed issues promptly.
-
-Thank you for helping keep this project secure!
+Each project demonstrates my ability to integrate Auth0's authentication flows in different environments, balancing security with usability.
